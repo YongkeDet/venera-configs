@@ -5,7 +5,7 @@ class Baozi extends ComicSource {
   // 唯一标识符
   key = "baozi";
 
-  version = "1.1.7";
+  version = "1.1.8";
 
   minAppVersion = "1.5.0";
 
@@ -119,7 +119,7 @@ class Baozi extends ComicSource {
     },
   };
 
-  // 分类站点当前使用此规范域名；language 参数仍跟随简繁设置。
+  // 发现和分类共用此规范域名及验证 Cookie；分类 language 参数跟随简繁设置。
   categoryOrigin = "https://www.baozimh.com";
 
   categoryHeaders() {
@@ -131,7 +131,7 @@ class Baozi extends ComicSource {
     };
   }
 
-  async fetchCategory(url) {
+  async fetchProtected(url) {
     const headers = this.categoryHeaders();
     let response = await Network.get(url, headers);
     if (response.status === 403) {
@@ -144,7 +144,7 @@ class Baozi extends ComicSource {
         if (!challengeHtml && (typeof path !== "string" || !path.startsWith("/__gatekeeper_challenge/start?"))) {
           throw new Error("包子分类验证入口已变化，请更新配置。");
         }
-        // 多个分类同时加载时共享一次验证，Cookie 由 Venera 网络层保存。
+        // 发现与分类同时加载时共享一次验证，Cookie 由 Venera 网络层保存。
         if (!this._categoryVerification) {
           this._categoryVerification = this.verifyCategoryChallenge(path, challengeHtml)
             .finally(() => { this._categoryVerification = null; });
@@ -154,8 +154,13 @@ class Baozi extends ComicSource {
       }
     }
     if (response.status !== 200) {
-      throw new Error("包子分类请求失败：HTTP " + response.status + "，请稍后重试或检查网络。");
+      throw new Error("包子漫画请求失败：HTTP " + response.status + "，请稍后重试或检查网络。");
     }
+    return response;
+  }
+
+  async fetchCategory(url) {
+    const response = await this.fetchProtected(url);
     const json = JSON.parse(response.body);
     if (!Array.isArray(json.items)) {
       throw new Error("包子分类返回的数据格式已变化，请更新配置。");
@@ -309,10 +314,7 @@ class Baozi extends ComicSource {
       type: "singlePageWithMultiPart",
 
       load: async () => {
-        var res = await Network.get(this.baseUrl);
-        if (res.status !== 200) {
-          throw "Invalid status code: " + res.status;
-        }
+        const res = await this.fetchProtected(this.categoryOrigin + "/");
         let document = new HtmlDocument(res.body);
         let parts = document.querySelectorAll("div.index-recommend-items");
         let result = {};
