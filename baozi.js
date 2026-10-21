@@ -5,7 +5,7 @@ class Baozi extends ComicSource {
   // 唯一标识符
   key = "baozi";
 
-  version = "1.1.8";
+  version = "1.1.9";
 
   minAppVersion = "1.5.0";
 
@@ -119,7 +119,7 @@ class Baozi extends ComicSource {
     },
   };
 
-  // 发现和分类共用此规范域名及验证 Cookie；分类 language 参数跟随简繁设置。
+  // 发现、分类和搜索共用规范域名及验证 Cookie；分类 language 参数跟随简繁设置。
   categoryOrigin = "https://www.baozimh.com";
 
   categoryHeaders() {
@@ -144,7 +144,7 @@ class Baozi extends ComicSource {
         if (!challengeHtml && (typeof path !== "string" || !path.startsWith("/__gatekeeper_challenge/start?"))) {
           throw new Error("包子分类验证入口已变化，请更新配置。");
         }
-        // 发现与分类同时加载时共享一次验证，Cookie 由 Venera 网络层保存。
+        // 多个页面同时加载时共享一次验证，Cookie 由 Venera 网络层保存。
         if (!this._categoryVerification) {
           this._categoryVerification = this.verifyCategoryChallenge(path, challengeHtml)
             .finally(() => { this._categoryVerification = null; });
@@ -458,10 +458,9 @@ class Baozi extends ComicSource {
   /// 搜索
   search = {
     load: async (keyword, options, page) => {
-      let res = await Network.get(`${this.baseUrl}/search?q=${keyword}`);
-      if (res.status !== 200) {
-        throw "Invalid status code: " + res.status;
-      }
+      const res = await this.fetchProtected(
+        `${this.categoryOrigin}/search?q=${encodeURIComponent(keyword)}`
+      );
       let document = new HtmlDocument(res.body);
       let comics = document
         .querySelectorAll("div.comics-card")
